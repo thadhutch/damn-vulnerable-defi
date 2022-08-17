@@ -1,5 +1,5 @@
+make --dry-run --always-make --keep-going --print-directory
 make: Entering directory `/Users/thadhutcheson/Desktop/GitHub/defi-security-excercise'
+forge test --match-test testExploit --match-contract Unstoppable
 make: Leaving directory `/Users/thadhutcheson/Desktop/GitHub/defi-security-excercise'
  
-make: *** No targets specified and no makefile found.  Stop.
-

