@@ -14,9 +14,9 @@
     // String to private key //
 
     const privateKeyA = Buffer.from(errorMsgA, 'base64').toString("utf8");
-    const privKeyB = Buffer.from(errorMsgB, 'base64').toString("utf8");
+    const privateKeyB = Buffer.from(errorMsgB, 'base64').toString("utf8");
 
-    console.log('pkA', privKeyA);
-    console.log('pkB', privKeyB);
+    console.log('pkA', privateKeyA);
+    console.log('pkB', privateKeyB);
     return
 })();
