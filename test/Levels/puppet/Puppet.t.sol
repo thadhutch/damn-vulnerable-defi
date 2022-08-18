@@ -117,8 +117,64 @@ contract Puppet is Test {
         console.log(unicode"🧨 PREPARED TO BREAK THINGS 🧨");
     }
 
+    /**
+     * Exploit Overview:
+     *
+     * This exploit introduces the idea of uniswap liquidity pools and how to manipulate them.
+     *
+     * Initially to borrow all tokens from the lending pool (100000 DVT) we would need twice the
+     * amount of equivalent VALUE in ETH. The value is calcluated as the ratio between the two assets
+     * so initially as they have the same ratio it would cost 200000 ETH.
+     *
+     * The liquidity pool has a balance of 10 ETH : 10 DVT. Since we have a lot more DVT and ETH
+     * than the pool, we can manipulate the liquididty pools price ratio, since liquidity pools
+     * are meant to have 50:50 eq value of both tokens.
+     *
+     * Liquidity Pools swaps are calculated AFTER the deposit so after depositing our 1000 DVT
+     * the ratio becomes 10 ETH : 1010 DVT. since we contributed > 99% of the tokens on the right
+     * we are entitled to > 99% of the tokens of the ETH which is just under 10 ETH.
+     *  Which then results in a price ratio of 0.01 ETH ~: 1010 DVT. Essentially heavily
+     *  devaluing the DVT in relation to ETH.
+     *
+     * It is calculated as follows (not accounting for the 0.3% fee)
+     * https://github.com/Uniswap/v1-contracts/blob/c10c08d81d6114f694baa8bd32f555a40f6264da/contracts/uniswap_exchange.vy#L437
+     *
+     * num = DEPOSITED_TOKENS * ETH_RESERVE
+     * den = TOTAL_TOKENS + DEPOSITED_TOKENS
+     *
+     * num = 1000 DVT * 10 ETH
+     * den = 10 DVT + 1000 DVT
+     * ouput ~= 9.9009.. ETH
+     *
+     * 1 DVT ~= (0.09 / 1010) ETH
+     *
+     * The oracle for the price will then equate borrowing the entire lending pools funds
+     * of 100000 DVT for:
+     *
+     * 100000 DVT ~= (0.09 / 1010) * 100000 * 2
+     *
+     * Which comes out to be just under 20ETH which we have!
+     *
+     * So we then request the loan from the lending pool to borrow all DVT for 20ETH
+     * which leaves us with
+     *
+     * Attacker ETH: 25 + 9.9 ETH (from deposited 1000 DVT) - ~20ETH (to borrow DVT) = ~15 ETH
+     * Attacker DVT: 100000
+     */
+
     function testExploit() public {
         /** EXPLOIT START **/
+        vm.startPrank(attacker);
+
+        dvt.approve(address(uniswapExchange), ATTACKER_INITIAL_TOKEN_BALANCE);
+
+        uniswapExchange.tokenToEthSwapInput(
+            ATTACKER_INITIAL_TOKEN_BALANCE,
+            9e18, // 0.5
+            block.timestamp + 15
+        );
+
+        puppetPool.borrow{value: 20e18}(POOL_INITIAL_TOKEN_BALANCE);
 
         /** EXPLOIT END **/
         validation();
